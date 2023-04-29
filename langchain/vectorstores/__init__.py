@@ -18,6 +18,9 @@ from langchain.vectorstores.supabase import SupabaseVectorStore
 from langchain.vectorstores.weaviate import Weaviate
 from langchain.vectorstores.zilliz import Zilliz
 
+from langchain.vectorstores.matching_engine import MatchingEngine
+
+
 __all__ = [
     "Redis",
     "ElasticVectorSearch",
@@ -38,4 +41,5 @@ __all__ = [
     "SupabaseVectorStore",
     "AnalyticDB",
     "LanceDB",
+    "MatchingEngine"
 ]
