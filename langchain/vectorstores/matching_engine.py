@@ -422,7 +422,7 @@ class MatchingEngine(VectorStore):
         )
         aiplatform.init(
             project=project_id,
-            location=region,
+            location='24947592.us-central1-801452371447.vdb.vertexai.goog',
             staging_bucket=gcs_bucket_name,
             credentials=credentials,
         )
