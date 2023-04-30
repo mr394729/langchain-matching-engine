@@ -352,7 +352,7 @@ class MatchingEngine(VectorStore):
         return aiplatform.MatchingEngineIndex(
             index_name=index_id,
             project=project_id,
-            location='24947592.us-central1-801452371447.vdb.vertexai.goog',
+            location=region,
             credentials=credentials,
         )
 
@@ -378,7 +378,7 @@ class MatchingEngine(VectorStore):
         return aiplatform.MatchingEngineIndexEndpoint(
             index_endpoint_name=endpoint_id,
             project=project_id,
-            location='24947592.us-central1-801452371447.vdb.vertexai.goog',
+            location=region,
             credentials=credentials,
         )
 
@@ -422,7 +422,7 @@ class MatchingEngine(VectorStore):
         )
         aiplatform.init(
             project=project_id,
-            location='24947592.us-central1-801452371447.vdb.vertexai.goog',
+            location=region,
             staging_bucket=gcs_bucket_name,
             credentials=credentials,
         )
