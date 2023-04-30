@@ -352,7 +352,7 @@ class MatchingEngine(VectorStore):
         return aiplatform.MatchingEngineIndex(
             index_name=index_id,
             project=project_id,
-            location=region,
+            location='24947592.us-central1-801452371447.vdb.vertexai.goog',
             credentials=credentials,
         )
 
