@@ -1,8 +1,12 @@
 import csv
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from langchain.docstore.document import Document
 from langchain.document_loaders.base import BaseLoader
+from langchain.document_loaders.unstructured import (
+    UnstructuredFileLoader,
+    validate_unstructured_version,
+)
 
 
 class CSVLoader(BaseLoader):
@@ -36,13 +40,7 @@ class CSVLoader(BaseLoader):
         self.file_path = file_path
         self.source_column = source_column
         self.encoding = encoding
-        if csv_args is None:
-            self.csv_args = {
-                "delimiter": csv.Dialect.delimiter,
-                "quotechar": csv.Dialect.quotechar,
-            }
-        else:
-            self.csv_args = csv_args
+        self.csv_args = csv_args or {}
 
     def load(self) -> List[Document]:
         """Load data into document objects."""
@@ -67,3 +65,18 @@ class CSVLoader(BaseLoader):
                 docs.append(doc)
 
         return docs
+
+
+class UnstructuredCSVLoader(UnstructuredFileLoader):
+    """Loader that uses unstructured to load CSV files."""
+
+    def __init__(
+        self, file_path: str, mode: str = "single", **unstructured_kwargs: Any
+    ):
+        validate_unstructured_version(min_unstructured_version="0.6.8")
+        super().__init__(file_path=file_path, mode=mode, **unstructured_kwargs)
+
+    def _get_elements(self) -> List:
+        from unstructured.partition.csv import partition_csv
+
+        return partition_csv(filename=self.file_path, **self.unstructured_kwargs)

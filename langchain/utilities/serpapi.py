@@ -76,11 +76,11 @@ class SerpAPIWrapper(BaseModel):
             )
         return values
 
-    async def arun(self, query: str) -> str:
+    async def arun(self, query: str, **kwargs: Any) -> str:
         """Run query through SerpAPI and parse result async."""
         return self._process_response(await self.aresults(query))
 
-    def run(self, query: str) -> str:
+    def run(self, query: str, **kwargs: Any) -> str:
         """Run query through SerpAPI and parse result."""
         return self._process_response(self.results(query))
 
@@ -144,12 +144,19 @@ class SerpAPIWrapper(BaseModel):
         ):
             toret = res["sports_results"]["game_spotlight"]
         elif (
+            "shopping_results" in res.keys()
+            and "title" in res["shopping_results"][0].keys()
+        ):
+            toret = res["shopping_results"][:3]
+        elif (
             "knowledge_graph" in res.keys()
             and "description" in res["knowledge_graph"].keys()
         ):
             toret = res["knowledge_graph"]["description"]
         elif "snippet" in res["organic_results"][0].keys():
             toret = res["organic_results"][0]["snippet"]
+        elif "link" in res["organic_results"][0].keys():
+            toret = res["organic_results"][0]["link"]
 
         else:
             toret = "No good search result found"

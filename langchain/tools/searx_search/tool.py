@@ -1,6 +1,12 @@
 """Tool for the SearxNG search API."""
+from typing import Optional
+
 from pydantic import Extra
 
+from langchain.callbacks.manager import (
+    AsyncCallbackManagerForToolRun,
+    CallbackManagerForToolRun,
+)
 from langchain.tools.base import BaseTool
 from langchain.utilities.searx_search import SearxSearchWrapper
 
@@ -8,7 +14,7 @@ from langchain.utilities.searx_search import SearxSearchWrapper
 class SearxSearchRun(BaseTool):
     """Tool that adds the capability to query a Searx instance."""
 
-    name = "Searx Search"
+    name = "searx_search"
     description = (
         "A meta search engine."
         "Useful for when you need to answer questions about current events."
@@ -16,11 +22,19 @@ class SearxSearchRun(BaseTool):
     )
     wrapper: SearxSearchWrapper
 
-    def _run(self, query: str) -> str:
+    def _run(
+        self,
+        query: str,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
         """Use the tool."""
         return self.wrapper.run(query)
 
-    async def _arun(self, query: str) -> str:
+    async def _arun(
+        self,
+        query: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
         """Use the tool asynchronously."""
         return await self.wrapper.arun(query)
 
@@ -42,10 +56,18 @@ class SearxSearchResults(BaseTool):
 
         extra = Extra.allow
 
-    def _run(self, query: str) -> str:
+    def _run(
+        self,
+        query: str,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
         """Use the tool."""
         return str(self.wrapper.results(query, self.num_results))
 
-    async def _arun(self, query: str) -> str:
+    async def _arun(
+        self,
+        query: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
         """Use the tool asynchronously."""
         return (await self.wrapper.aresults(query, self.num_results)).__str__()

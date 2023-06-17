@@ -3,8 +3,12 @@ import re
 import warnings
 from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Union
 
-from pydantic import BaseModel, Extra, root_validator
+from pydantic import BaseModel, root_validator
 
+from langchain.callbacks.manager import (
+    AsyncCallbackManagerForLLMRun,
+    CallbackManagerForLLMRun,
+)
 from langchain.llms.base import LLM
 from langchain.utils import get_from_dict_or_env
 
@@ -32,6 +36,8 @@ class _AnthropicCommon(BaseModel):
     default_request_timeout: Optional[Union[float, Tuple[float, float]]] = None
     """Timeout for requests to Anthropic Completion API. Default is 600 seconds."""
 
+    anthropic_api_url: str = "https://api.anthropic.com"
+
     anthropic_api_key: Optional[str] = None
 
     HUMAN_PROMPT: Optional[str] = None
@@ -44,10 +50,16 @@ class _AnthropicCommon(BaseModel):
         anthropic_api_key = get_from_dict_or_env(
             values, "anthropic_api_key", "ANTHROPIC_API_KEY"
         )
+        """Get custom api url from environment."""
+        anthropic_api_url = get_from_dict_or_env(
+            values, "anthropic_api_url", "ANTHROPIC_API_URL"
+        )
+
         try:
             import anthropic
 
             values["client"] = anthropic.Client(
+                api_url=anthropic_api_url,
                 api_key=anthropic_api_key,
                 default_request_timeout=values["default_request_timeout"],
             )
@@ -55,7 +67,7 @@ class _AnthropicCommon(BaseModel):
             values["AI_PROMPT"] = anthropic.AI_PROMPT
             values["count_tokens"] = anthropic.count_tokens
         except ImportError:
-            raise ValueError(
+            raise ImportError(
                 "Could not import anthropic python package. "
                 "Please it install it with `pip install anthropic`."
             )
@@ -93,12 +105,6 @@ class _AnthropicCommon(BaseModel):
 
         return stop
 
-    def get_num_tokens(self, text: str) -> int:
-        """Calculate number of tokens."""
-        if not self.count_tokens:
-            raise NameError("Please ensure the anthropic package is loaded")
-        return self.count_tokens(text)
-
 
 class Anthropic(LLM, _AnthropicCommon):
     r"""Wrapper around Anthropic's large language models.
@@ -109,6 +115,7 @@ class Anthropic(LLM, _AnthropicCommon):
 
     Example:
         .. code-block:: python
+
             import anthropic
             from langchain.llms import Anthropic
             model = Anthropic(model="<model_name>", anthropic_api_key="my-api-key")
@@ -133,11 +140,6 @@ class Anthropic(LLM, _AnthropicCommon):
         )
         return values
 
-    class Config:
-        """Configuration for this pydantic object."""
-
-        extra = Extra.forbid
-
     @property
     def _llm_type(self) -> str:
         """Return type of llm."""
@@ -158,7 +160,13 @@ class Anthropic(LLM, _AnthropicCommon):
         # As a last resort, wrap the prompt ourselves to emulate instruct-style.
         return f"{self.HUMAN_PROMPT} {prompt}{self.AI_PROMPT} Sure, here you go:\n"
 
-    def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
+    def _call(
+        self,
+        prompt: str,
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> str:
         r"""Call out to Anthropic's completion endpoint.
 
         Args:
@@ -177,53 +185,54 @@ class Anthropic(LLM, _AnthropicCommon):
 
         """
         stop = self._get_anthropic_stop(stop)
+        params = {**self._default_params, **kwargs}
         if self.streaming:
             stream_resp = self.client.completion_stream(
                 prompt=self._wrap_prompt(prompt),
                 stop_sequences=stop,
-                **self._default_params,
+                **params,
             )
             current_completion = ""
             for data in stream_resp:
                 delta = data["completion"][len(current_completion) :]
                 current_completion = data["completion"]
-                self.callback_manager.on_llm_new_token(
-                    delta, verbose=self.verbose, **data
-                )
+                if run_manager:
+                    run_manager.on_llm_new_token(delta, **data)
             return current_completion
         response = self.client.completion(
             prompt=self._wrap_prompt(prompt),
             stop_sequences=stop,
-            **self._default_params,
+            **params,
         )
         return response["completion"]
 
-    async def _acall(self, prompt: str, stop: Optional[List[str]] = None) -> str:
+    async def _acall(
+        self,
+        prompt: str,
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> str:
         """Call out to Anthropic's completion endpoint asynchronously."""
         stop = self._get_anthropic_stop(stop)
+        params = {**self._default_params, **kwargs}
         if self.streaming:
             stream_resp = await self.client.acompletion_stream(
                 prompt=self._wrap_prompt(prompt),
                 stop_sequences=stop,
-                **self._default_params,
+                **params,
             )
             current_completion = ""
             async for data in stream_resp:
                 delta = data["completion"][len(current_completion) :]
                 current_completion = data["completion"]
-                if self.callback_manager.is_async:
-                    await self.callback_manager.on_llm_new_token(
-                        delta, verbose=self.verbose, **data
-                    )
-                else:
-                    self.callback_manager.on_llm_new_token(
-                        delta, verbose=self.verbose, **data
-                    )
+                if run_manager:
+                    await run_manager.on_llm_new_token(delta, **data)
             return current_completion
         response = await self.client.acompletion(
             prompt=self._wrap_prompt(prompt),
             stop_sequences=stop,
-            **self._default_params,
+            **params,
         )
         return response["completion"]
 
@@ -256,3 +265,9 @@ class Anthropic(LLM, _AnthropicCommon):
             stop_sequences=stop,
             **self._default_params,
         )
+
+    def get_num_tokens(self, text: str) -> int:
+        """Calculate number of tokens."""
+        if not self.count_tokens:
+            raise NameError("Please ensure the anthropic package is loaded")
+        return self.count_tokens(text)
